@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>MINECRAFT CRAFTING STUDIO | Block Builder Simulator</title>
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Courier New', 'Minecraft', monospace;
+            background: #1a1f2e;
+            color: #fff;
+        }
+
+        /* Game canvas */
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        /* UI Overlay - Minecraft style */
+        .ui-container {
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .inventory-bar {
+            background: rgba(30, 30, 40, 0.85);
+            backdrop-filter: blur(8px);
+            border: 3px solid #8b8b8b;
+            border-radius: 12px;
+            padding: 8px 16px;
+            display: flex;
+            gap: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            pointer-events: auto;
+        }
+
+        .slot {
+            width: 64px;
+            height: 64px;
+            background: #2d2d2d;
+            border: 2px solid #5a5a5a;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.1s;
+            position: relative;
+            background-image: linear-gradient(145deg, #3a3a3a, #202020);
+        }
+
+        .slot.selected {
+            border: 3px solid #ffaa00;
+            box-shadow: 0 0 15px #ffaa44;
+            transform: scale(1.05);
+            background: #4a4a4a;
+        }
+
+        .slot-icon {
+            font-size: 32px;
+            filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.5));
+        }
+
+        .slot-count {
+            position: absolute;
+            bottom: 4px;
+            right: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            background: rgba(0,0,0,0.7);
+            padding: 2px 5px;
+            border-radius: 10px;
+            color: #ffff80;
+        }
+
+        .block-name {
+            font-size: 10px;
+            margin-top: 4px;
+            text-align: center;
+            color: #ddd;
+        }
+
+        /* Top stats */
+        .stats {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 18px;
+            border-radius: 12px;
+            backdrop-filter: blur(4px);
+            font-weight: bold;
+            font-size: 18px;
+            border-left: 4px solid #ffaa00;
+            z-index: 10;
+            pointer-events: none;
+            font-family: monospace;
+        }
+
+        .crafting-panel {
+            position: fixed;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 15px;
+            border: 2px solid #aa8c54;
+            min-width: 180px;
+            text-align: center;
+            z-index: 10;
+            pointer-events: auto;
+            font-family: monospace;
+        }
+
+        .craft-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffaa44;
+            margin-bottom: 12px;
+            text-shadow: 2px 2px 0 #3a2a1a;
+        }
+
+        .recipe {
+            background: #2c2c2c;
+            margin: 8px 0;
+            padding: 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.1s;
+            border: 1px solid #6b5a3e;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .recipe:hover {
+            background: #4a4a2a;
+            transform: scale(1.02);
+            border-color: #ffaa44;
+        }
+
+        .recipe-icon {
+            font-size: 28px;
+        }
+
+        .recipe-info {
+            text-align: left;
+            font-size: 12px;
+        }
+
+        .recipe-cost {
+            color: #aaffaa;
+            font-size: 11px;
+        }
+
+        .message-area {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f1f1fcc;
+            backdrop-filter: blur(10px);
+            padding: 8px 18px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 20;
+            border: 1px solid gold;
+            color: #ffffbb;
+            white-space: nowrap;
+            font-family: monospace;
+        }
+
+        .controls-hint {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-family: monospace;
+            pointer-events: none;
+        }
+
+        @keyframes pop {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        .floating-number {
+            position: absolute;
+            pointer-events: none;
+            font-weight: bold;
+            font-size: 20px;
+            color: #ffaa44;
+            text-shadow: 1px 1px 0 black;
+            animation: pop 0.6s ease-out forwards;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="stats">
+        🧱 BLOCKS: <span id="blockCount">0</span> &nbsp;| ⛏️ MINED: <span id="minedCount">0</span>
+    </div>
+    
+    <div class="crafting-panel">
+        <div class="craft-title">🔨 CRAFTING TABLE</div>
+        <div id="recipeList"></div>
+        <div style="font-size: 10px; margin-top: 10px; color: #aa8866;">▼ click recipe to craft</div>
+    </div>
+    
+    <div class="ui-container">
+        <div class="inventory-bar" id="inventoryBar"></div>
+    </div>
+    
+    <div class="message-area" id="messageBox">✨ Click on ground → Place block ✨</div>
+    <div class="controls-hint">🖱️ LEFT CLICK: Place block | 🔢 1-9: Select slot | 🎯 Craft items from panel</div>
+
+    <script>
+        (function(){
+            // ---------- MINECRAFT STYLE VOXEL WORLD ----------
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            let width, height;
+            
+            // World settings: 3D-like isometric? No, we'll do a top-down 2.5D grid with blocky aesthetic
+            // But to feel like Minecraft, we create a tile-based world (chunk style) with block placement/removal
+            // Actually more like "Minecraft builder" - 2D top-down but each block is drawn as 3D cube isometric?
+            // Let's do a beautiful 2D grid but each block is rendered as a little 3D cube (fake perspective)
+            // That feels super Minecrafty!
+            
+            const TILE_SIZE = 48;      // width of tile
+            const WORLD_W = 25;
+            const WORLD_H = 19;
+            
+            // Define block types with visual style & rarity / crafting
+            const BLOCKS = {
+                0: { name: 'AIR', color: '#1e2a2e', icon: '⬜', solid: false, visible: false, texture: null },
+                1: { name: 'GRASS', color: '#5c9c3c', icon: '🌿', solid: true, topColor: '#6aa84f', sideColor: '#5b8c3a' },
+                2: { name: 'DIRT', color: '#8b5a2b', icon: '🟫', solid: true, topColor: '#8b5a2b', sideColor: '#7c4a1e' },
+                3: { name: 'STONE', color: '#808080', icon: '🪨', solid: true, topColor: '#8a8a8a', sideColor: '#6e6e6e' },
+                4: { name: 'COBBLE', color: '#696969', icon: '🧱', solid: true, topColor: '#7c7c7c', sideColor: '#5a5a5a' },
+                5: { name: 'WOOD', color: '#bc9a6c', icon: '🪵', solid: true, topColor: '#c2a16e', sideColor: '#a57c52' },
+                6: { name: 'DIAMOND', color: '#5ae0e0', icon: '💎', solid: true, topColor: '#6ef0f0', sideColor: '#3ac0c0' },
+                7: { name: 'GOLD', color: '#f5cb42', icon: '🪙', solid: true, topColor: '#ffda6a', sideColor: '#e5b83c' }
+            };
+            
+            // world grid (2D array storing block id)
+            let world = Array(WORLD_H).fill().map(() => Array(WORLD_W).fill(1));
+            
+            // inventory system: slots 0-8, each { id, count }
+            let inventory = [];
+            let selectedSlot = 0;
+            
+            // player stats
+            let totalBlocksPlaced = 0;
+            let totalBlocksMined = 0;
+            
+            // crafting recipes (input item and cost)
+            const recipes = [
+                { name: '🪨 Stone', resultId: 3, resultIcon: '🪨', cost: [{ id: 4, amount: 2 }], desc: '2 Cobble → Stone' },
+                { name: '🧱 Cobble', resultId: 4, resultIcon: '🧱', cost: [{ id: 1, amount: 3 }], desc: '3 Dirt → Cobble' },
+                { name: '🪵 Wood', resultId: 5, resultIcon: '🪵', cost: [{ id: 2, amount: 2 }], desc: '2 Dirt → Wood' },
+                { name: '💎 Diamond', resultId: 6, resultIcon: '💎', cost: [{ id: 3, amount: 4 }, { id: 5, amount: 2 }], desc: '4 Stone + 2 Wood' },
+                { name: '🪙 Gold', resultId: 7, resultIcon: '🪙', cost: [{ id: 3, amount: 3 }, { id: 4, amount: 2 }], desc: '3 Stone + 2 Cobble' }
+            ];
+            
+            // helper: add block to inventory
+            function addToInventory(blockId, amount = 1) {
+                for(let i = 0; i < inventory.length; i++) {
+                    if(inventory[i].id === blockId && inventory[i].count < 999) {
+                        inventory[i].count += amount;
+                        updateInventoryUI();
+                        return true;
+                    }
+                }
+                if(inventory.length < 9) {
+                    inventory.push({ id: blockId, count: amount });
+                    updateInventoryUI();
+                    return true;
+                } else {
+                    // full inventory, try stacking again
+                    for(let i = 0; i < inventory.length; i++) {
+                        if(inventory[i].id === blockId) {
+                            inventory[i].count += amount;
+                            updateInventoryUI();
+                            return true;
+                        }
+                    }
+                    showMessage("⚠️ Inventory full! Cannot pick up more.", 1500);
+                    return false;
+                }
+            }
+            
+            // remove items from inventory based on cost array
+            function canAfford(cost) {
+                let tempInv = inventory.map(slot => ({ id: slot.id, count: slot.count }));
+                for(let item of cost) {
+                    let needed = item.amount;
+                    for(let i=0; i<tempInv.length; i++) {
+                        if(tempInv[i].id === item.id) {
+                            let take = Math.min(needed, tempInv[i].count);
+                            needed -= take;
+                            tempInv[i].count -= take;
+                            if(needed === 0) break;
+                        }
+                    }
+                    if(needed > 0) return false;
+                }
+                return true;
+            }
+            
+            function consumeCost(cost) {
+                for(let item of cost) {
+                    let remaining = item.amount;
+                    for(let i=0; i<inventory.length; i++) {
+                        if(inventory[i].id === item.id && remaining > 0) {
+                            let deduct = Math.min(remaining, inventory[i].count);
+                            inventory[i].count -= deduct;
+                            remaining -= deduct;
+                            if(inventory[i].count === 0) {
+                                inventory.splice(i,1);
+                                i--;
+                            }
+                            if(remaining === 0) break;
+                        }
+                    }
+                }
+                updateInventoryUI();
+            }
+            
+            function craftRecipe(recipe) {
+                if(!canAfford(recipe.cost)) {
+                    showMessage(`❌ Missing materials for ${recipe.name}!`, 1200);
+                    return false;
+                }
+                consumeCost(recipe.cost);
+                addToInventory(recipe.resultId, 1);
+                showMessage(`✅ Crafted ${recipe.name} ✨`, 1000);
+                return true;
+            }
+            
+            // place block in world (must have in inventory)
+            function placeBlock(worldX, worldY, blockId) {
+                if(worldX < 0 || worldX >= WORLD_W || worldY < 0 || worldY >= WORLD_H) return false;
+                if(world[worldY][worldX] !== 1 && world[worldY][worldX] !== 2 && world[worldY][worldX] !== 0) {
+                    if(world[worldY][worldX] !== 0) { showMessage("⛔ Can't replace that block!", 600); return false; }
+                }
+                // find in inventory
+                let slotIndex = -1;
+                for(let i=0; i<inventory.length; i++) {
+                    if(inventory[i].id === blockId && inventory[i].count > 0) {
+                        slotIndex = i;
+                        break;
+                    }
+                }
+                if(slotIndex === -1) {
+                    showMessage("❌ No blocks in inventory!", 800);
+                    return false;
+                }
+                // consume one
+                inventory[slotIndex].count--;
+                if(inventory[slotIndex].count === 0) inventory.splice(slotIndex,1);
+                world[worldY][worldX] = blockId;
+                totalBlocksPlaced++;
+                updateStatsUI();
+                updateInventoryUI();
+                showFloatingNumber(worldX, worldY, `+${BLOCKS[blockId].icon}`, "#aaffaa");
+                return true;
+            }
+            
+            // mine block (remove and add to inventory)
+            function mineBlock(worldX, worldY) {
+                if(worldX < 0 || worldX >= WORLD_W || worldY < 0 || worldY >= WORLD_H) return;
+                let blockId = world[worldY][worldX];
+                if(blockId === 0 || blockId === undefined) return;
+                if(blockId !== 1 && blockId !== 2 && blockId !== 3 && blockId !== 4 && blockId !== 5 && blockId !== 6 && blockId !== 7) return;
+                let blockType = BLOCKS[blockId];
+                if(blockType && blockType.solid) {
+                    addToInventory(blockId, 1);
+                    world[worldY][worldX] = 1; // set to grass default after mining? Actually better set to dirt? No, set to AIR (0)
+                    // but we need base ground: set to 0? We'll set to 0 and allow placing anywhere, but ground should be dirt? Let's set to 0 (air)
+                    // But world should have some base. Better: after mining become AIR, but to prevent holes we set to DIRT? No, like Minecraft: becomes air.
+                    // To keep ground, we set to 2 (dirt) if below certain Y? For simplicity: we set to dirt (2) to avoid floating? No, player will fill. We'll set to 0 (air)
+                    world[worldY][worldX] = 0;
+                    totalBlocksMined++;
+                    updateStatsUI();
+                    showFloatingNumber(worldX, worldY, `+1 ${blockType.icon}`, "#ffcc66");
+                    showMessage(`⛏️ Mined ${blockType.name}`, 600);
+                }
+            }
+            
+            // UI update
+            function updateInventoryUI() {
+                const bar = document.getElementById('inventoryBar');
+                if(!bar) return;
+                bar.innerHTML = '';
+                for(let i=0; i<9; i++) {
+                    const slot = inventory[i] || null;
+                    const div = document.createElement('div');
+                    div.className = 'slot';
+                    if(selectedSlot === i) div.classList.add('selected');
+                    const icon = slot ? (BLOCKS[slot.id]?.icon || '⬜') : '🕳️';
+                    const count = slot ? slot.count : 0;
+                    const name = slot ? (BLOCKS[slot.id]?.name || 'Air') : 'Empty';
+                    div.innerHTML = `
+                        <div class="slot-icon">${icon}</div>
+                        <div class="block-name">${name}</div>
+                        ${count > 0 ? `<div class="slot-count">${count}</div>` : ''}
+                    `;
+                    div.onclick = (function(idx){ return function(){ selectSlot(idx); }; })(i);
+                    bar.appendChild(div);
+                }
+            }
+            
+            function selectSlot(idx) {
+                selectedSlot = idx;
+                updateInventoryUI();
+                const selectedItem = inventory[selectedSlot];
+                if(selectedItem) showMessage(`Selected: ${BLOCKS[selectedItem.id]?.name}`, 800);
+                else showMessage(`Empty slot`, 500);
+            }
+            
+            function updateStatsUI() {
+                document.getElementById('blockCount').innerText = totalBlocksPlaced;
+                document.getElementById('minedCount').innerText = totalBlocksMined;
+            }
+            
+            function showMessage(msg, duration=1200) {
+                const msgBox = document.getElementById('messageBox');
+                if(msgBox) {
+                    msgBox.innerText = msg;
+                    msgBox.style.opacity = '1';
+                    setTimeout(() => {
+                        if(msgBox.innerText === msg) msgBox.style.opacity = '0.7';
+                    }, duration);
+                }
+            }
+            
+            function showFloatingNumber(tileX, tileY, text, color="#ffaa44") {
+                const canvasRect = canvas.getBoundingClientRect();
+                const screenX = tileX * TILE_SIZE + TILE_SIZE/2;
+                const screenY = tileY * TILE_SIZE + TILE_SIZE/2;
+                const div = document.createElement('div');
+                div.className = 'floating-number';
+                div.innerText = text;
+                div.style.position = 'fixed';
+                div.style.left = (canvasRect.left + screenX) + 'px';
+                div.style.top = (canvasRect.top + screenY - 20) + 'px';
+                div.style.color = color;
+                document.body.appendChild(div);
+                setTimeout(() => div.remove(), 600);
+            }
+            
+            // generate random starting world (nice landscape)
+            function generateWorld() {
+                for(let y=0; y<WORLD_H; y++) {
+                    for(let x=0; x<WORLD_W; x++) {
+                        if(y > WORLD_H-6) world[y][x] = 1; // grass layer
+                        else if(y > WORLD_H-8) world[y][x] = 2; // dirt
+                        else if(y > WORLD_H-12) world[y][x] = 3; // stone
+                        else world[y][x] = 3;
+                        // add random ores
+                        if(Math.random() < 0.05 && y > WORLD_H-10 && world[y][x] === 3) world[y][x] = 4; // cobble/ore
+                        if(Math.random() < 0.02 && y > WORLD_H-7 && world[y][x] === 3) world[y][x] = 6; // diamond rare
+                        if(Math.random() < 0.03 && y > WORLD_H-9 && world[y][x] === 3) world[y][x] = 7; // gold
+                    }
+                }
+                // surface trees (wood)
+                for(let i=0;i<12;i++) {
+                    let x = 2 + Math.floor(Math.random() * (WORLD_W-4));
+                    let y = WORLD_H-6;
+                    if(world[y][x] === 1) world[y][x] = 5;
+                    if(y-1>=0 && world[y-1][x] === 1) world[y-1][x] = 5;
+                }
+            }
+            
+            // 3D-like block drawing with isometric flair (Minecraft style)
+            function drawBlock(ctx, x, y, blockId, isometricOffset=0) {
+                const block = BLOCKS[blockId];
+                if(!block || blockId === 0 || !block.solid) {
+                    // draw grid outline for air
+                    ctx.fillStyle = "#2a2e3a";
+                    ctx.fillRect(x, y, TILE_SIZE-1, TILE_SIZE-1);
+                    ctx.strokeStyle = "#3a4050";
+                    ctx.strokeRect(x, y, TILE_SIZE-1, TILE_SIZE-1);
+                    return;
+                }
+                const topColor = block.topColor || block.color;
+                const sideColor = block.sideColor || block.color;
+                const size = TILE_SIZE;
+                // Draw pseudo 3D: top face, left face, right face
+                ctx.save();
+                // Top face (bright)
+                ctx.fillStyle = topColor;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + size, y);
+                ctx.lineTo(x + size - 8, y + 8);
+                ctx.lineTo(x - 8, y + 8);
+                ctx.fill();
+                // Left face (darker)
+                ctx.fillStyle = sideColor;
+                ctx.beginPath();
+                ctx.moveTo(x - 8, y + 8);
+                ctx.lineTo(x, y + size);
+                ctx.lineTo(x + size, y + size);
+                ctx.lineTo(x + size - 8, y + 8);
+                ctx.fill();
+                // Right face (even darker)
+                ctx.fillStyle = `rgba(0,0,0,0.2)`;
+                ctx.fillRect(x, y+4, size, size-4);
+                ctx.fillStyle = sideColor;
+                ctx.fillRect(x, y+4, size, size-4);
+                // Add pixel texture
+                ctx.fillStyle = "#00000022";
+                for(let i=0;i<6;i++) {
+                    ctx.fillRect(x+4+(i*7), y+12, 3, 3);
+                }
+                ctx.fillStyle = "#fff8";
+                ctx.font = `${Math.floor(size*0.5)}px monospace`;
+                ctx.fillText(block.icon, x+12, y+28);
+                ctx.restore();
+                // border
+                ctx.strokeStyle = "#00000055";
+                ctx.strokeRect(x, y, size, size);
+            }
+            
+            function renderWorld() {
+                if(!ctx) return;
+                ctx.clearRect(0, 0, width, height);
+                // background sky gradient
+                const grad = ctx.createLinearGradient(0,0,0,height);
+                grad.addColorStop(0,"#4a6a8a");
+                grad.addColorStop(1,"#1e2a3a");
+                ctx.fillStyle = grad;
+                ctx.fillRect(0,0,width,height);
+                // draw each block with isometric shift
+                const offsetX = (width/2) - (WORLD_W * TILE_SIZE)/2;
+                const offsetY = 60;
+                for(let row=0; row<WORLD_H; row++) {
+                    for(let col=0; col<WORLD_W; col++) {
+                        let blockId = world[row][col];
+                        let xPos = offsetX + col * TILE_SIZE;
+                        let yPos = offsetY + row * TILE_SIZE;
+                        drawBlock(ctx, xPos, yPos, blockId);
+                        // outline grid
+                        ctx.strokeStyle = "#3f4f5f";
+                        ctx.strokeRect(xPos, yPos, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+                // draw selection highlight (selected slot)
+                if(inventory[selectedSlot]) {
+                    // show cursor block preview (not needed)
+                }
+            }
+            
+            // convert mouse to tile
+            function getMouseTile(clientX, clientY) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const canvasX = (clientX - rect.left) * scaleX;
+                const canvasY = (clientY - rect.top) * scaleY;
+                const offsetX = (width/2) - (WORLD_W * TILE_SIZE)/2;
+                const offsetY = 60;
+                for(let row=0; row<WORLD_H; row++) {
+                    for(let col=0; col<WORLD_W; col++) {
+                        let left = offsetX + col * TILE_SIZE;
+                        let top = offsetY + row * TILE_SIZE;
+                        if(canvasX >= left && canvasX <= left+TILE_SIZE && canvasY >= top && canvasY <= top+TILE_SIZE) {
+                            return { x: col, y: row };
+                        }
+                    }
+                }
+                return null;
+            }
+            
+            // event listeners
+            let lastClickTime = 0;
+            function handleCanvasClick(e, isRightClick=false) {
+                e.preventDefault();
+                const tile = getMouseTile(e.clientX, e.clientY);
+                if(!tile) return;
+                const now = Date.now();
+                if(now - lastClickTime < 80) return;
+                lastClickTime = now;
+                if(isRightClick) {
+                    mineBlock(tile.x, tile.y);
+                } else {
+                    // place: use selected slot block id
+                    if(inventory[selectedSlot]) {
+                        const blockId = inventory[selectedSlot].id;
+                        placeBlock(tile.x, tile.y, blockId);
+                    } else {
+                        showMessage("❗ No block selected in inventory", 800);
+                    }
+                }
+                renderWorld();
+            }
+            
+            function resizeCanvas() {
+                width = window.innerWidth;
+                height = window.innerHeight;
+                canvas.width = width;
+                canvas.height = height;
+                renderWorld();
+            }
+            
+            // crafting UI
+            function buildCraftingUI() {
+                const container = document.getElementById('recipeList');
+                if(!container) return;
+                container.innerHTML = '';
+                recipes.forEach((rec, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'recipe';
+                    div.innerHTML = `
+                        <div class="recipe-icon">${rec.resultIcon}</div>
+                        <div class="recipe-info">
+                            <strong>${rec.name}</strong><br>
+                            <span class="recipe-cost">${rec.desc}</span>
+                        </div>
+                    `;
+                    div.onclick = () => craftRecipe(rec);
+                    container.appendChild(div);
+                });
+            }
+            
+            // initial inventory
+            function initInventory() {
+                inventory = [];
+                addToInventory(1, 20); // grass blocks
+                addToInventory(2, 15); // dirt
+                addToInventory(3, 10); // stone
+                addToInventory(4, 5);  // cobble
+                selectedSlot = 0;
+                updateInventoryUI();
+            }
+            
+            // keyboard handling
+            function handleKeydown(e) {
+                const key = e.key;
+                if(key >= '1' && key <= '9') {
+                    let idx = parseInt(key) - 1;
+                    if(idx >=0 && idx <9) selectSlot(idx);
+                    e.preventDefault();
+                }
+                if(key === 'r' || key === 'R') {
+                    // quick random craft?
+                    showMessage("🔨 Use crafting panel on the right!", 1000);
+                }
+            }
+            
+            function handleContextMenu(e) {
+                e.preventDefault();
+                handleCanvasClick(e, true);
+                return false;
+            }
+            
+            window.addEventListener('load', () => {
+                resizeCanvas();
+                generateWorld();
+                initInventory();
+                buildCraftingUI();
+                updateStatsUI();
+                renderWorld();
+                canvas.addEventListener('click', (e) => handleCanvasClick(e, false));
+                canvas.addEventListener('contextmenu', handleContextMenu);
+                window.addEventListener('resize', () => { resizeCanvas(); renderWorld(); });
+                window.addEventListener('keydown', handleKeydown);
+                showMessage("Welcome to MINECRAFT STUDIO! ⛏️ Place blocks, craft items, build!", 2500);
+            });
+            
+        })();
+    </script>
+</body>
+</html>
